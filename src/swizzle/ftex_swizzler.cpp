@@ -16,6 +16,8 @@
 #undef max
 #undef min
 
+#include <cstring>
+
 const u8 bankSwapOrder[] = {0, 1, 3, 2, 6, 7, 5, 4, 0, 0};
 
 u16 BCn_formats[] = {0x31, 0x431, 0x32, 0x432, 0x33, 0x433, 0x34, 0x234, 0x35, 0x235};
@@ -47,7 +49,7 @@ void FTEX_Swizzler::deswizzle(u32 sizeX, u32 sizeY, u32 sizeZ, u32 index, u16 fo
     u8* data = dataIn + bufferStart;
 
     u16* BCn_formats_end = BCn_formats + BCn_formats_size;
-    if(std::find(BCn_formats, BCn_formats_end, format_) != BCn_formats_end) //!!
+    if(std::find(BCn_formats, BCn_formats_end, format_) != BCn_formats_end)
     {
         sizeX = (sizeX + 3) / 4;
         sizeY = (sizeY + 3) / 4;
@@ -62,11 +64,31 @@ void FTEX_Swizzler::deswizzle(u32 sizeX, u32 sizeY, u32 sizeZ, u32 index, u16 fo
         bankSwizzle = (index % 4);
     }
 
+    // pre-calculated stuff
+    tileThickness = computeSurfaceThickness(tileMode);
+
+    if(tileMode == 0 || tileMode == 1)
+    {
+    }else if(tileMode == 2 || tileMode == 3){
+
+    }else{
+        macroTileBits = bpp * (tileThickness * m_microTilePixels);
+        macroBytesPerSample = (macroTileBits + 7) / 8;
+
+        macroSamplesPerSlice = m_splitSize / macroBytesPerSample;
+        macroNumSampleSplits = std::max((u32)1, 1 / macroSamplesPerSlice);
+    }
+
+    u8 bppBytes = bpp / 8;
+    u32 rowPos;
+    u32 pos;
+
     for(u32 y=0; y<sizeY; ++y)
     {
+        rowPos = y * sizeX;
+
         for(u32 x=0; x<sizeX; ++x)
         {
-            u32 pos;
             if(tileMode == 0 || tileMode == 1)
             {
                 pos = AddrLib_computeSurfaceAddrFromCoordLinear(x, y, bpp, pitch);
@@ -76,15 +98,11 @@ void FTEX_Swizzler::deswizzle(u32 sizeX, u32 sizeY, u32 sizeZ, u32 index, u16 fo
                 pos = AddrLib_computeSurfaceAddrFromCoordMacroTiled(x, y, bpp, pitch, sizeZ, tileMode, pipeSwizzle, bankSwizzle);
             }
 
-            u8 bpp2 = bpp;
-            bpp2 = bpp2 / 8;
-
-            u32 pos_ = (y * sizeX + x) * bpp2;
+            u32 pos_ = (rowPos + x) * bppBytes;
 
             if((pos_ < dataSize) && (pos < dataSize))
             {
-                for(u32 p=0; p<bpp2; ++p)
-                    dataOut[pos_ + p] = data[pos + p];
+                std::memcpy(dataOut + pos_, data + pos, bppBytes);
             }
         }
     }
@@ -95,7 +113,6 @@ u8 FTEX_Swizzler::surfaceGetBitsPerPixel(u32 surfaceFormat)
     u32 hwFormat = surfaceFormat & 0x3F;
     return formatHwInfo[hwFormat * 4 + 0];
 }
-
 
 u8 FTEX_Swizzler::computeSurfaceThickness(u32 tileMode)
 {
@@ -109,8 +126,6 @@ u8 FTEX_Swizzler::computeSurfaceThickness(u32 tileMode)
 
 u32 FTEX_Swizzler::computePixelIndexWithinMicroTile(u32 x, u32 y, u8 bpp, u32 tileMode, u32 z)
 {
-    u8 thickness = computeSurfaceThickness(tileMode);
-
     u8 pixelBit0 = x & 1;
     u8 pixelBit1 = (x & 2) >> 1;
     u8 pixelBit2 = y & 1;
@@ -164,13 +179,13 @@ u32 FTEX_Swizzler::computePixelIndexWithinMicroTile(u32 x, u32 y, u8 bpp, u32 ti
         pixelBit5 = (y & 4) >> 2;
     }
 
-    if(thickness > 1)
+    if(tileThickness > 1)
     {
         pixelBit6 = z & 1;
         pixelBit7 = (z & 2) >> 1;
     }
 
-    if(thickness == 8)
+    if(tileThickness == 8)
         pixelBit8 = (z & 4) >> 2;
 
     return (
@@ -187,23 +202,19 @@ u32 FTEX_Swizzler::computePipeFromCoordWoRotation(u32 x, u32 y)
 
 u32 FTEX_Swizzler::computeBankFromCoordWoRotation(u32 x, u32 y)
 {
-    u32 numPipes = m_pipes;
-    u32 numBanks = m_banks;
-    u32 bank = 0;
-
-    if(numBanks == 4)
+    if(m_banks == 4)
     {
-        u8 bankBit0 = ((y / (16 * numPipes)) ^ (x >> 3) ) & 1;
-        bank = bankBit0 | 2 * (( (y / (8 * numPipes)) ^ (x >> 4)) & 1);
+        u8 bankBit0 = ((y / (16 * m_pipes)) ^ (x >> 3) ) & 1;
+        return bankBit0 | 2 * (( (y / (8 * m_pipes)) ^ (x >> 4)) & 1);
     }
-    else if(numBanks == 8)
+    else if(m_banks == 8)
     {
-        u8 bankBit0a = ( (y / (32 * numPipes)) ^ (x >> 3)) & 1;
-        bank = (bankBit0a | 2 * (( (y / (32 * numPipes)) ^ (y / (16 * numPipes) ^ (x >> 4))) & 1) |
-            4 * (( (y / (8 * numPipes)) ^ (x >> 5)) & 1));
+        u8 bankBit0a = ( (y / (32 * m_pipes)) ^ (x >> 3)) & 1;
+        return (bankBit0a | 2 * (( (y / (32 * m_pipes)) ^ (y / (16 * m_pipes) ^ (x >> 4))) & 1) |
+            4 * (( (y / (8 * m_pipes)) ^ (x >> 5)) & 1));
     }
 
-    return bank;
+    return 0;
 }
 
 bool FTEX_Swizzler::isThickMacroTiled(u32 tileMode)
@@ -268,10 +279,7 @@ u32 FTEX_Swizzler::computeSurfaceBankSwappedWidth(u32 tileMode, u8 bpp, u32 pitc
 
 u32 FTEX_Swizzler::AddrLib_computeSurfaceAddrFromCoordLinear(u32 x, u32 y, u8 bpp, u32 pitch)
 {
-    u32 rowOffset = y * pitch;
-    u32 pixOffset = x;
-    u32 addr = (rowOffset + pixOffset) * bpp;
-
+    u32 addr = ( y * pitch + x) * bpp;
     return addr / 8;
 }
 
@@ -299,50 +307,35 @@ u32 FTEX_Swizzler::AddrLib_computeSurfaceAddrFromCoordMicroTiled(u32 x, u32 y, u
 
 u32 FTEX_Swizzler::AddrLib_computeSurfaceAddrFromCoordMacroTiled(u32 x, u32 y, u8 bpp, u32 pitch, u32 sizeZ, u32 tileMode, u8 pipeSwizzle, u8 bankSwizzle)
 {
-    u32 numPipes = m_pipes;
-    u32 numBanks = m_banks;
-    u32 numGroupBits = m_pipeInterleaveBytesBitcount;
-    u32 numPipeBits = m_pipesBitcount;
-    u32 numBankBits = m_banksBitcount;
-
-    auto microTileThickness = computeSurfaceThickness(tileMode);
-
-    u32 microTileBits = bpp * (microTileThickness * m_microTilePixels);
-    u32 microTileBytes = (microTileBits + 7) / 8;
-
     auto pixelIndex  = computePixelIndexWithinMicroTile(x, y, bpp, tileMode);
-    u32 pixelOffset = bpp * pixelIndex;
-    u32 elemOffset  = pixelOffset;
+    u32 elemOffset = bpp * pixelIndex;
 
-    u32 bytesPerSample = microTileBytes;
     u32 numSamples = 1;
     u32 sampleSlice = 0;
 
-    if(microTileBytes > m_splitSize)
+    if(macroBytesPerSample > m_splitSize)
     {
-        u32 samplesPerSlice = m_splitSize / bytesPerSample;
-        u32 numSampleSplits = std::max((u32)1, 1 / samplesPerSlice);
-        numSamples = samplesPerSlice;
-        sampleSlice = elemOffset / (microTileBits / numSampleSplits);
-        elemOffset %= microTileBits / numSampleSplits;
+        numSamples = macroSamplesPerSlice;
+        sampleSlice = elemOffset / (macroTileBits / macroNumSampleSplits);
+        elemOffset %= macroTileBits / macroNumSampleSplits;
     }
 
     elemOffset += 7;
-    elemOffset = elemOffset / 8;
+    elemOffset /= 8;
 
     auto pipe = computePipeFromCoordWoRotation(x, y);
     auto bank = computeBankFromCoordWoRotation(x, y);
 
-    u32 bankPipe = pipe + numPipes * bank;
-    u32 swizzle_ = pipeSwizzle + numPipes * bankSwizzle;
+    u32 bankPipe = pipe + m_pipes * bank;
+    u32 swizzle_ = pipeSwizzle + m_pipes * bankSwizzle;
 
-    bankPipe ^= numPipes * sampleSlice * ((numBanks >> 1) + 1) ^ swizzle_;
-    bankPipe %= numPipes * numBanks;
-    pipe = bankPipe % numPipes;
-    bank = bankPipe / numPipes;
+    bankPipe ^= m_pipes * sampleSlice * ((m_banks >> 1) + 1) ^ swizzle_;
+    bankPipe %= m_pipes * m_banks;
+    pipe = bankPipe % m_pipes;
+    bank = bankPipe / m_pipes;
 
-    u32 sliceBytes = (sizeZ * pitch * microTileThickness * bpp * numSamples + 7) / 8;
-    u32 sliceOffset = sliceBytes * (sampleSlice / microTileThickness);
+    u32 sliceBytes = (sizeZ * pitch * tileThickness * bpp * numSamples + 7) / 8;
+    u32 sliceOffset = sliceBytes * (sampleSlice / tileThickness);
 
     u32 macroTilePitch = 8 * m_banks;
     u32 macroTileHeight = 8 * m_pipes;
@@ -359,7 +352,7 @@ u32 FTEX_Swizzler::AddrLib_computeSurfaceAddrFromCoordMacroTiled(u32 x, u32 y, u
     }
 
     u32 macroTilesPerRow = pitch / macroTilePitch;
-    u32 macroTileBytes = (numSamples * microTileThickness * bpp * macroTileHeight * macroTilePitch + 7) / 8;
+    u32 macroTileBytes = (numSamples * tileThickness * bpp * macroTileHeight * macroTilePitch + 7) / 8;
     u32 macroTileIndexX = x / macroTilePitch;
     u32 macroTileIndexY = y / macroTileHeight;
     u32 macroTileOffset = (macroTileIndexX + macroTilesPerRow * macroTileIndexY) * macroTileBytes;
@@ -371,17 +364,17 @@ u32 FTEX_Swizzler::AddrLib_computeSurfaceAddrFromCoordMacroTiled(u32 x, u32 y, u
         bank ^= bankSwapOrder[swapIndex & (m_banks - 1)];
     }
 
-    u32 groupMask = ((1 << numGroupBits) - 1);
+    u32 groupMask = ((1 << m_pipeInterleaveBytesBitcount) - 1);
 
-    u32 numSwizzleBits = (numBankBits + numPipeBits);
+    u32 numSwizzleBits = (m_banksBitcount + m_pipesBitcount);
 
     u32 totalOffset = (elemOffset + ((macroTileOffset + sliceOffset) >> numSwizzleBits));
 
     u32 offsetHigh = (totalOffset & ~groupMask) << numSwizzleBits;
     u32 offsetLow = groupMask & totalOffset;
 
-    u32 pipeBits = pipe << numGroupBits;
-    u32 bankBits = bank << (numPipeBits + numGroupBits);
+    u32 pipeBits = pipe << m_pipeInterleaveBytesBitcount;
+    u32 bankBits = bank << (m_pipesBitcount + m_pipeInterleaveBytesBitcount);
 
     return bankBits | pipeBits | offsetLow | offsetHigh;
 }

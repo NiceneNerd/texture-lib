@@ -26,8 +26,8 @@ u8 getParamU8(napi_env &env, napi_value &params, const char* name)
 
 napi_value FTEX_Deswizzle(napi_env env, napi_callback_info info) 
 {
-    size_t argc = 2;
-    napi_value argv[2];
+    size_t argc = 3;
+    napi_value argv[3];
 
     if(napi_get_cb_info(env, info, &argc, argv, NULL, NULL) != napi_ok)
     {
@@ -35,9 +35,11 @@ napi_value FTEX_Deswizzle(napi_env env, napi_callback_info info)
         return nullptr;
     }
 
-    int32_t bufferSizeLimit = -1;
     u8* bufferIn = nullptr;
     size_t bufferInSize = 0;
+
+    u8* bufferOut = nullptr;
+    size_t bufferOutSize = 0;
 
     if(napi_get_buffer_info(env, argv[0], (void**)&bufferIn, &bufferInSize) != napi_ok)
     {
@@ -45,7 +47,13 @@ napi_value FTEX_Deswizzle(napi_env env, napi_callback_info info)
         return nullptr;
     }
 
-    auto params = argv[1];
+    if(napi_get_buffer_info(env, argv[1], (void**)&bufferOut, &bufferOutSize) != napi_ok)
+    {
+        napi_throw_error(env, NULL, "Invalid Buffer was passed as argument");
+        return nullptr;
+    }
+
+    auto params = argv[2];
     auto sizeX    = getParamU32(env, params, "sizeX");
     auto sizeY    = getParamU32(env, params, "sizeY");
     auto sizeZ    = getParamU32(env, params, "sizeZ");
@@ -56,21 +64,10 @@ napi_value FTEX_Deswizzle(napi_env env, napi_callback_info info)
     auto pitch    = getParamU32(env, params, "pitch");
     auto bpp      = getParamU8(env, params, "bpp");
 
-    auto bufferOut = std::vector<u8>(bufferInSize);
-
     auto ftexSwizzler = FTEX_Swizzler();
-    ftexSwizzler.deswizzle(sizeX, sizeY, sizeZ, index, format, tileMode, swizzle, pitch, bpp, bufferIn, (u8*)bufferOut.data(), bufferInSize);
+    ftexSwizzler.deswizzle(sizeX, sizeY, sizeZ, index, format, tileMode, swizzle, pitch, bpp, bufferIn, bufferOut, bufferInSize);
 
-    napi_value resultBuffer;
-    void* createdBuffer;
-
-    if(napi_create_buffer_copy(env, bufferInSize, (u8*)bufferOut.data(), &createdBuffer, &resultBuffer) != napi_ok)
-    {
-        napi_throw_error(env, NULL, "Unable to create Buffer");
-        return nullptr;
-    }
-
-    return resultBuffer;
+    return nullptr;
 }
 
 napi_value Init(napi_env env, napi_value exports) 

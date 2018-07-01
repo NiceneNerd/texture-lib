@@ -16,7 +16,10 @@ const bufferIn = Buffer.from([
     9,1,2,3,4,5,6,7
 ]);
 */
+console.time("load");
 const bufferIn = fs.readFileSync("./testBuffer.bin");
+const bufferRef = fs.readFileSync("./testBuffer.out.bin");
+console.timeEnd("load");
 
 console.log(bufferIn);
 
@@ -32,7 +35,16 @@ const params = {
     "bpp": 64
 };
 
-const bufferOut = tex.deswizzle(bufferIn, params);
+let bufferOut;
 
-console.log("OUT");
+console.time("swizzle");
+for(let i=0; i<500; ++i)
+{
+    bufferOut = Buffer.alloc(bufferIn.length);
+    tex.deswizzle(bufferIn, bufferOut, params);
+}
+
+console.timeEnd("swizzle");
+
 console.log(bufferOut);
+console.log(bufferOut.compare(bufferRef) == 0 ? "SUCCESS" : "ERROR");

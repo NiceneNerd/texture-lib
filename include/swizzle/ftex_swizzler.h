@@ -19,6 +19,7 @@
 class FTEX_Swizzler
 {
     private:
+        // immutable
         u32 m_banks         = 4;
         u32 m_banksBitcount = 2;
 
@@ -34,23 +35,31 @@ class FTEX_Swizzler
         u32 m_chipFamily      = 2;
         u32 m_microTilePixels = 8 * 8;
 
-        u8 surfaceGetBitsPerPixel(u32 surfaceFormat);
-        u8 computeSurfaceThickness(u32 tileMode);
+        // calculated
+        u8 tileThickness;
 
-        u32 computePixelIndexWithinMicroTile(u32 x, u32 y, u8 bpp, u32 tileMode, u32 z = 0);
+        u32 macroTileBits;
+        u32 macroBytesPerSample;
+        u32 macroSamplesPerSlice;
+        u32 macroNumSampleSplits;
 
-        u32 computePipeFromCoordWoRotation(u32 x, u32 y);
-        u32 computeBankFromCoordWoRotation(u32 x, u32 y);
+        inline u8 surfaceGetBitsPerPixel(u32 surfaceFormat);
+        inline u8 computeSurfaceThickness(u32 tileMode);
 
-        bool isThickMacroTiled(u32 tileMode);
-        bool isBankSwappedTileMode(u32 tileMode);
+        inline u32 computePixelIndexWithinMicroTile(u32 x, u32 y, u8 bpp, u32 tileMode, u32 z = 0);
 
-        u8 computeMacroTileAspectRatio(u32 tileMode);
-        u32 computeSurfaceBankSwappedWidth(u32 tileMode, u8 bpp, u32 pitch, u32 numSamples = 1);
+        inline u32 computePipeFromCoordWoRotation(u32 x, u32 y);
+        inline u32 computeBankFromCoordWoRotation(u32 x, u32 y);
 
-        u32 AddrLib_computeSurfaceAddrFromCoordLinear(u32 x, u32 y, u8 bpp, u32 pitch);
-        u32 AddrLib_computeSurfaceAddrFromCoordMicroTiled(u32 x, u32 y, u8 bpp, u32 pitch, u32 tileMode);
-        u32 AddrLib_computeSurfaceAddrFromCoordMacroTiled(u32 x, u32 y, u8 bpp, u32 pitch, u32 sizeZ, u32 tileMode, u8 pipeSwizzle, u8 bankSwizzle);
+        inline bool isThickMacroTiled(u32 tileMode);
+        inline bool isBankSwappedTileMode(u32 tileMode);
+
+        inline u8 computeMacroTileAspectRatio(u32 tileMode);
+        inline u32 computeSurfaceBankSwappedWidth(u32 tileMode, u8 bpp, u32 pitch, u32 numSamples = 1);
+
+        inline u32 AddrLib_computeSurfaceAddrFromCoordLinear(u32 x, u32 y, u8 bpp, u32 pitch);
+        inline u32 AddrLib_computeSurfaceAddrFromCoordMicroTiled(u32 x, u32 y, u8 bpp, u32 pitch, u32 tileMode);
+        inline u32 AddrLib_computeSurfaceAddrFromCoordMacroTiled(u32 x, u32 y, u8 bpp, u32 pitch, u32 sizeZ, u32 tileMode, u8 pipeSwizzle, u8 bankSwizzle);
 
     public:
         void deswizzle(u32 sizeX, u32 sizeY, u32 sizeZ, u32 index, u16 format_, u32 tileMode, u32 swizzle_, u32 pitch, u8 bpp, 
