@@ -45,7 +45,7 @@ napi_value FTEX_Deswizzle(napi_env env, napi_callback_info info)
         return nullptr;
     }
 
-    auto params = argv[0];
+    auto params = argv[1];
     auto sizeX    = getParamU32(env, params, "sizeX");
     auto sizeY    = getParamU32(env, params, "sizeY");
     auto sizeZ    = getParamU32(env, params, "sizeZ");
