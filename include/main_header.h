@@ -10,7 +10,8 @@
 #include <cstdint>
 #include <string>
 #include <vector>
-#include <nan.h>
+#include <algorithm>
+#include <node_api.h>
 
 /**** Data Types ****/
 typedef std::uint8_t u8;

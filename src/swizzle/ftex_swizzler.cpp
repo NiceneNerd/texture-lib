@@ -16,8 +16,6 @@
 #undef max
 #undef min
 
-#include <algorithm>
-
 const u8 bankSwapOrder[] = {0, 1, 3, 2, 6, 7, 5, 4, 0, 0};
 
 u16 BCn_formats[] = {0x31, 0x431, 0x32, 0x432, 0x33, 0x433, 0x34, 0x234, 0x35, 0x235};

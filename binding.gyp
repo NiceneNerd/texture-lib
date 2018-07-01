@@ -1,9 +1,6 @@
 {
     "targets": [
     {
-        "include_dirs": [
-            "<!(node -e \"require('nan')\")"
-        ],
         "target_name": "texture",
         "sources": [
             "src/main.cpp",
@@ -12,7 +9,8 @@
         "cflags": [
           "-std=c++11",
           '-O3'
-        ]
+        ],
+        'cflags_cc': [ '-fexceptions' ]
     }
     ]
 }
