@@ -1,0 +1,15 @@
+{
+    "name": "texture-lib",
+    "version": "1.0.0",
+    "main": "bindings.js",
+    "scripts": {
+        "build": "node-gyp rebuild",
+        "start": "node main.js",
+        "install": "echo 'Auto-build for NPM disabled, this module is only for Electron'"
+    },
+    "license": "GPL-3.0",
+    "dependencies": {
+        "nan": "^2.10.0"
+    },
+    "gypfile": true
+}
