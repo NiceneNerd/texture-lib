@@ -58,7 +58,7 @@ void FTEX_Swizzler::deswizzle(u32 sizeX, u32 sizeY, u32 sizeZ, u32 index, u16 fo
     u32 pipeSwizzle = (swizzle >> 8) & 1;
     u32 bankSwizzle = (swizzle >> 9) & 3;
 
-    if(sizeZ > 0)
+    if(sizeZ > 1) // used by terrain textures
     {
         // every 4 textures, the only correct texture is the first, fix for the rest here:
         bankSwizzle = (index % 4);
