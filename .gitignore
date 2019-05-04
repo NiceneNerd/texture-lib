@@ -7,3 +7,4 @@ build/
 # Intellij project settings
 .idea/
 *.iml
+.vscode

@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include "main_header.h"
+#include "../main_header.h"
 
 class FTEX_Swizzler
 {
